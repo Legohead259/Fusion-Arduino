@@ -18,17 +18,17 @@ The algorithm calculates the orientation as the integration of the gyroscope sum
 
 ### Initialisation
 
-Initialisation occurs when the algorithm starts for the first time and after an acceleration rejection timeout.  During initialisation, the acceleration and magnetic rejection features are disabled and the gain is ramped down from 10 to the final value over a 3 second period.  This allows the measurement of orientation to rapidly converges from an arbitrary initial value to the value indicated by the sensors.
+Initialisation occurs when the algorithm starts for the first time.  During initialisation, the acceleration and magnetic rejection features are disabled and the gain is ramped down from 10 to the final value over a 3 second period.  This allows the measurement of orientation to rapidly converges from an arbitrary initial value to the value indicated by the sensors.  The algorithm outputs should be regarded as unreliable during initialisation.
 
 ### Acceleration rejection
 
-The acceleration rejection feature reduces the errors that result from the accelerations of linear and rotational motion.  Acceleration rejection works by comparing the instantaneous measurement of inclination provided by the accelerometer with the current measurement of inclination indicated by the algorithm output.  If the angular difference between these two inclinations is greater than a threshold then the accelerometer will be ignored for this algorithm update.  This is equivalent to a dynamic gain that deceases as accelerations increase.
+The acceleration rejection feature reduces the errors that result from the accelerations of linear and rotational motion.  Acceleration rejection works by calculating an error as the angular difference between the instantaneous measurement of inclination indicated by the accelerometer, and the the current measurement of inclination provided by the algorithm output.  If the error is greater than a threshold then the accelerometer will be ignored for that algorithm update.  This is equivalent to a dynamic gain that deceases as accelerations increase.
 
-Prolonged accelerations from linear and rotational motion may result in the accelerometer being unusable as a measurement of inclination.  This is detected by the algorithm as an acceleration rejection timeout.  An acceleration rejection timeout occurs when the number of algorithm updates that have ignored the accelerometer exceeds ten times the number that have used the accelerometer within a defined period.  If an acceleration rejection timeout occurs then the algorithm will reinitialise.
+Prolonged accelerations from linear and rotational motion will activate acceleration recovery.  This prevents the acceleration rejection feature from causing a runaway in the algorithm output.  Acceleration recovery is activated when the error is greater than the threshold for more than 90% of algorithm updates over the recovery trigger period.  The recovery is deactivated when the error is equal or less than the threshold for more than 90% of algorithm updates over double the recovery trigger period.  The accelerometer will be used by every algorithm update while acceleration recovery is active.
 
 ### Magnetic rejection
 
-The magnetic rejection feature reduces the errors that result from temporary magnetic distortions.  Magnetic rejection works using the same principle as acceleration rejection operating on the magnetometer instead of the accelerometer and by comparing the measurements of heading instead of inclination.  A magnetic rejection timeout will not cause the algorithm to reinitialise.  If a magnetic rejection timeout occurs then the heading of the algorithm output will be set to the instantaneous measurement of heading provided by the magnetometer.
+The magnetic rejection feature reduces the errors that result from temporary magnetic distortions.  Magnetic rejection works using the same principle as acceleration rejection, operating on the magnetometer instead of the accelerometer and by comparing the measurements of heading instead of inclination.
 
 ### Algorithm outputs
 
@@ -38,38 +38,36 @@ The algorithm provides three outputs: quaternion, linear acceleration, and Earth
 
 The AHRS algorithm settings are defined by the `FusionAhrsSettings` structure and set using the `FusionAhrsSetSettings` function.
 
-| Setting                 | Description                                                                                                                                                                                                   |
-|-------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `convention`            | Earth axes convention (NWD, ENU, or NED).                                                                                                                                                                     |
-| `gain`                  | Determines the influence of the gyroscope relative to other sensors.  A value of 0.5 is appropriate for most applications.                                                                                    |
-| `accelerationRejection` | Threshold (in degrees) used by the acceleration rejection feature.  A value of zero will disable this feature.  A value of 10 degrees is appropriate for most applications.                                   |
-| `magneticRejection`     | Threshold (in degrees) used by the magnetic rejection feature.  A value of zero will disable the feature. A value of 20 degrees is appropriate for most applications.                                         |
-| `rejectionTimeout`      | Acceleration and magnetic rejection timeout period (in samples).  A value of zero will disable the acceleration and magnetic rejection features.  A period of 5 seconds is appropriate for most applications. |
+| Setting                 | Description                                                                                                                                                                                                  |
+|-------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `convention`            | Earth axes convention (NWD, ENU, or NED).                                                                                                                                                                    |
+| `gain`                  | Determines the influence of the gyroscope relative to other sensors.  A value of 0.5 is appropriate for most applications.                                                                                   |
+| `accelerationRejection` | Threshold (in degrees) used by the acceleration rejection feature.  A value of zero will disable this feature.  A value of 10 degrees is appropriate for most applications.                                  |
+| `magneticRejection`     | Threshold (in degrees) used by the magnetic rejection feature.  A value of zero will disable the feature. A value of 20 degrees is appropriate for most applications.                                        |
+| `recoveryTriggerPeriod` | Acceleration and magnetic recovery trigger period (in samples).  A value of zero will disable the acceleration and magnetic rejection features.  A period of 5 seconds is appropriate for most applications. |
 
 ### Algorithm internal states
 
 The AHRS algorithm internal states are defined by the `FusionAhrsInternalStates` structure and obtained using the `FusionAhrsGetInternalStates` function.
 
-| State                        | Description                                                                                                                                                                                                                                                            |
-|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `accelerationError`          | Angular error (in degrees) of the instantaneous measurement of inclination provided by the accelerometer.  The acceleration rejection feature will ignore the accelerometer if this value exceeds the `accelerationRejection` threshold set in the algorithm settings. |
-| `accelerometerIgnored`       | `true` if the accelerometer was ignored by the previous algorithm update.                                                                                                                                                                                              |
-| `accelerationRejectionTimer` | Acceleration rejection timer value normalised to between 0.0 and 1.0.  An acceleration rejection timeout will occur when this value reaches 1.0.                                                                                                                       |
-| `magneticError`              | Angular error (in degrees) of the instantaneous measurement of heading provided by the magnetometer.  The magnetic rejection feature will ignore the magnetometer if this value exceeds the `magneticRejection` threshold set in the algorithm settings.               |
-| `magnetometerIgnored`        | `true` if the magnetometer was ignored by the previous algorithm update.                                                                                                                                                                                               |
-| `magneticRejectionTimer`     | Magnetic rejection timer value normalised to between 0.0 and 1.0.  A magnetic rejection timeout will occur when this value reaches 1.0.                                                                                                                                |
+| State                         | Description                                                                                                                                                                                                                                                                                              |
+|-------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `accelerationError`           | Angular error (in degrees) of the algorithm output relative to the instantaneous measurement of inclination indicated by the accelerometer.  The acceleration rejection feature will ignore the accelerometer if this value exceeds the `accelerationRejection` threshold set in the algorithm settings. |
+| `accelerometerIgnored`        | `true` if the accelerometer was ignored by the previous algorithm update.                                                                                                                                                                                                                                |
+| `accelerationRecoveryTrigger` | Acceleration recovery trigger value between 0.0 and 2.0.  Acceleration recovery will be activated when this value is greater than 1.0.                                                                                                                                                                   |
+| `magneticError`               | Angular error (in degrees) of the algorithm output relative to the instantaneous measurement of heading indicated by the magnetometer.  The magnetic rejection feature will ignore the magnetometer if this value exceeds the `magneticRejection` threshold set in the algorithm settings.               |
+| `magnetometerIgnored`         | `true` if the magnetometer was ignored by the previous algorithm update.                                                                                                                                                                                                                                 |
+| `magneticRecoveryTrigger`     | Magnetic recovery trigger value between 0.0 and 2.0.  Magnetic recovery will be activated when this value is equal or greater than 1.0.                                                                                                                                                                  |
 
 ### Algorithm flags
 
 The AHRS algorithm flags are defined by the `FusionAhrsFlags` structure and obtained using the `FusionAhrsGetFlags` function.
 
-| Flag                           | Description                                                                                                                |
-|--------------------------------|----------------------------------------------------------------------------------------------------------------------------|
-| `initialising`                 | `true` if the algorithm is initialising.                                                                                   |
-| `accelerationRejectionWarning` | `true` if the acceleration rejection timer has exceeded 25% of the `rejectionTimeout` value set in the algorithm settings. |
-| `accelerationRejectionTimeout` | `true` if an acceleration rejection timeout has occurred and the algorithm is initialising.                                |
-| `magneticRejectionWarning`     | `true` if the magnetic rejection timer has exceeded 25% of the `rejectionTimeout` value set in the algorithm settings.     |
-| `magneticRejectionTimeout`     | `true` if a magnetic rejection timeout has occurred during the previous algorithm update.                                  |
+| Flag                   | Description                                |
+|------------------------|--------------------------------------------|
+| `initialising`         | `true` if the algorithm is initialising.   |
+| `accelerationRecovery` | `true` if acceleration recovery is active. |
+| `magneticRecovery`     | `true` if a magnetic recovery is active.   |
 
 ## Gyroscope offset correction algorithm
 

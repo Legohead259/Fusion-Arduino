@@ -26,7 +26,7 @@ typedef struct {
     float gain;
     float accelerationRejection;
     float magneticRejection;
-    unsigned int rejectionTimeout;
+    unsigned int recoveryTriggerPeriod;
 } FusionAhrsSettings;
 
 /**
@@ -43,11 +43,9 @@ typedef struct {
     FusionVector halfAccelerometerFeedback;
     FusionVector halfMagnetometerFeedback;
     bool accelerometerIgnored;
-    unsigned int accelerationRejectionTimer;
-    bool accelerationRejectionTimeout;
+    unsigned int accelerationRecoveryTrigger;
     bool magnetometerIgnored;
-    unsigned int magneticRejectionTimer;
-    bool magneticRejectionTimeout;
+    unsigned int magneticRecoveryTrigger;
 } FusionAhrs;
 
 /**
@@ -56,10 +54,10 @@ typedef struct {
 typedef struct {
     float accelerationError;
     bool accelerometerIgnored;
-    float accelerationRejectionTimer;
+    float accelerationRecoveryTrigger;
     float magneticError;
     bool magnetometerIgnored;
-    float magneticRejectionTimer;
+    float magneticRecoveryTrigger;
 } FusionAhrsInternalStates;
 
 /**
@@ -67,10 +65,8 @@ typedef struct {
  */
 typedef struct {
     bool initialising;
-    bool accelerationRejectionWarning;
-    bool accelerationRejectionTimeout;
-    bool magneticRejectionWarning;
-    bool magneticRejectionTimeout;
+    bool accelerationRecovery;
+    bool magneticRecovery;
 } FusionAhrsFlags;
 
 //------------------------------------------------------------------------------
